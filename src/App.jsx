@@ -14,7 +14,7 @@ function App() {
     const [decayTimeMs, setDecayTimeMs] = useLocalStorage('setting:decayTimeMs', 10000);
     const [noiseIntervalMs, setNoiseIntervalMs] = useLocalStorage('setting:noiseIntervalMs', 5000);
     const [contractCount, setContractCount] = useLocalStorage('setting:contractCount', 3);
-    const [paused, setPaused] = useLocalStorage('setting:paused', false);
+    const [paused, setPaused] = useLocalStorage('setting:paused', true);
     const [minPayoutMult, setMinPayoutMult] = useLocalStorage('setting:contractRewardMin', 1);
     const [maxPayoutMult, setMaxPayoutMult] = useLocalStorage('setting:contractRewardMax', 1.4);
 
@@ -33,7 +33,7 @@ function App() {
     } = useResources({ noiseIntervalMs, paused });
     const tierOrder = Object.keys(byTier).map(Number).sort((a,b)=>a-b)
 
-    const { contracts, completeContract, resetContracts, onContractDecay, contractDifficulty, setContractDifficulty } = useContracts(byTier, values, setResourceValue, 50, contractCount, minPayoutMult, maxPayoutMult);
+    const { contracts, completeContract, resetContracts, onContractDecay, contractDifficulty, setContractDifficulty } = useContracts(byTier, values, setResourceValue, 50, contractCount, minPayoutMult, maxPayoutMult, paused);
 
     // Refs to each resource box wrapper
     const containerRef = useRef(null)

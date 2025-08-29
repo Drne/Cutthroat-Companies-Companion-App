@@ -23,7 +23,7 @@ import { useLocalStorage } from "./useWebStorage.ts";
 //     }
 // }
 
-export const useContracts = (resourcesByTier, values, setResourceValue, startValue = 50, contractCount, rewardMinMultiplier = 1, rewardMaxMultiplier = 1.4) => {
+export const useContracts = (resourcesByTier, values, setResourceValue, startValue = 50, contractCount, rewardMinMultiplier = 1, rewardMaxMultiplier = 1.4, paused = false) => {
     const [contracts, setContracts] = useLocalStorage('contracts', []);
     const [startTargetValue, setStartTargetValue] = useState(startValue);
     const [currentTargetValue, setCurrentTargetValue] = useLocalStorage('currentContractTargetValue', startTargetValue); // Adjusts overall contract difficulty and rewards
@@ -122,20 +122,21 @@ export const useContracts = (resourcesByTier, values, setResourceValue, startVal
 
     // Maintain desired contract count whenever dependencies change
     useEffect(() => {
+        if (paused) return; // do not generate while paused
         if (contractCount == null) return; // guard
         if (contracts.length < contractCount) {
             const missing = contractCount - contracts.length;
             addNewContract(currentTargetValue, missing);
         } else if (contracts.length > contractCount) {
-            // remove oldest extras (those at end of array)
             setContracts(prev => prev.slice(0, contractCount));
         }
-    }, [contractCount, contracts.length, currentTargetValue, addNewContract, setContracts, contractDifficulty]);
+    }, [paused, contractCount, contracts.length, currentTargetValue, addNewContract, setContracts, contractDifficulty]);
 
     // If difficulty changes and there are no contracts yet, seed immediately
     useEffect(() => {
+        if (paused) return;
         if (contracts.length === 0 && contractCount) addNewContract(startTargetValue, contractCount);
-    }, [contractDifficulty]);
+    }, [contractDifficulty, paused]);
 
     const onContractDecay = useCallback((contractId) => {
         const contract = contracts.find(c => c.id === contractId);
@@ -150,8 +151,8 @@ export const useContracts = (resourcesByTier, values, setResourceValue, startVal
     const reset = useCallback(() => {
         setContracts([]);
         setCurrentTargetValue(startTargetValue);
-        if (contractCount) addNewContract(startTargetValue, contractCount);
-    }, [addNewContract, startTargetValue, contractCount, setContracts]);
+        if (!paused && contractCount) addNewContract(startTargetValue, contractCount);
+    }, [addNewContract, startTargetValue, contractCount, setContracts, paused]);
 
     return { contracts, completeContract, resetContracts: reset, onContractDecay, contractDifficulty, setContractDifficulty };
 }

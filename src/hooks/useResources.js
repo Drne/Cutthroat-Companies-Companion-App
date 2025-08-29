@@ -69,13 +69,22 @@ export function useResources(config = {}) {
   }, [])
 
   // map resource name -> value (initial = min)
-  const [values, setValues] = useLocalStorage('resourceValues',() => {
-    const init = {}
-    for (const r of resourceData) {
-      init[r.name] = computeMin(r, init)
-    }
-    return init
-  })
+  const [values, setValues] = useLocalStorage('resourceValues',{});
+
+  // Setup inital resource values if not already present
+    useEffect(() => {
+        setValues(prevVals => {
+            if (prevVals && Object.keys(prevVals).length === resourceData.length) return prevVals
+            const newVals = { ...prevVals }
+            for (const r of resourceData) {
+            if (typeof newVals[r.name] !== 'number') {
+                newVals[r.name] = computeMin(r, newVals)
+            }
+            }
+            return newVals
+        })
+    }, [setValues, computeMin])
+
   // history: array of past values (including initial) for each resource
   const [histories, setHistories] = useLocalStorage('resourceHistory',() => {
     const init = {}
