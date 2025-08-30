@@ -4,7 +4,7 @@ import {useCallback, useRef, useMemo, useEffect, useState} from 'react'
 import clsx from 'clsx/lite'
 
 
-export const ResourceBox = ({ name, value, setValue, step = 1, min = 0, history = [], ignoreMin, resourceBase }) => {
+export const ResourceBox = ({ name, value, setValue, step = 1, min = 0, history = [], ignoreMin }) => {
     // Clamp now only enforces the minimum (unless ignoreMin is true)
     const clamp = useCallback((v) => {
         if (ignoreMin) return v;
@@ -15,6 +15,16 @@ export const ResourceBox = ({ name, value, setValue, step = 1, min = 0, history 
 
     // direction memo removed; we now manage a transient flash direction state
     const [flashDir, setFlashDir] = useState(0) // 1 = up (green), -1 = down (red)
+    // NEW: show multiplication table toggle
+    const [showTable, setShowTable] = useState(false)
+    const toggleTable = useCallback(() => setShowTable(s => !s), [])
+    const handleValueKey = useCallback((e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            toggleTable();
+        }
+    }, [toggleTable])
+
     useEffect(() => {
         if (history.length < 2) return
         const prev = history[history.length - 2]
@@ -51,39 +61,80 @@ export const ResourceBox = ({ name, value, setValue, step = 1, min = 0, history 
         return { linePath, areaPath }
     }, [history])
 
+    // Precompute multiplication rows
+    const multRows = useMemo(() => {
+        if (!showTable) return []
+        const baseVal = typeof value === 'number' ? value : 0
+        return Array.from({ length: 10 }, (_, i) => {
+            const n = i + 1
+            const product = baseVal * n
+            return { n, product }
+        })
+    }, [showTable, value])
+
     return (
         <Card role="group" aria-label={`${name} value`}>
-            <TopSection>
-                <Label>{name}</Label>
-                <ValueWrapper>
-                     <NumberFlow
-                         value={value}
-                         integer
-                         prefix="$"
-                         className={clsx(
-                             '~text-lg/2xl transition-colors',
-                             flashDir !== 0 ? 'duration-300' : 'duration-long',
-                             flashDir < 0 ? 'text-red-500' : flashDir > 0 ? 'text-emerald-500' : undefined
-                         )}
-                     />
-                    <MinRow aria-label={`Minimum ${name} value ${minFormatted}`}>
-                        <MinPill>
-                            {!ignoreMin && 'Min '}
-                            <NumberFlow
-                                // style={{ width: '40px'}}
-                                value={min}
-                                integer
-                                prefix="$"
-                            />
-                        </MinPill>
-                    </MinRow>
-                </ValueWrapper>
-                <Controls>
-                    <ControlButton type="button" onClick={inc} aria-label={`Increase ${name}`}>+</ControlButton>
-                    <ControlButton type="button" onClick={dec} aria-label={`Decrease ${name}`}>−</ControlButton>
-                </Controls>
-            </TopSection>
-            {graph && (
+            {!showTable && (
+                <TopSection>
+                    <Label>{name}</Label>
+                    <ValueWrapper
+                        role="button"
+                        tabIndex={0}
+                        aria-pressed={showTable}
+                        aria-label={`Current ${name} value ${formatterRef.current.format(value)}. Activate to view multiplication table.`}
+                        onClick={toggleTable}
+                        onKeyDown={handleValueKey}
+                    >
+                         <NumberFlow
+                             value={value}
+                             integer
+                             prefix="$"
+                             className={clsx(
+                                 '~text-lg/2xl transition-colors',
+                                 flashDir !== 0 ? 'duration-300' : 'duration-long',
+                                 flashDir < 0 ? 'text-red-500' : flashDir > 0 ? 'text-emerald-500' : undefined
+                             )}
+                         />
+                        <MinRow aria-label={`Minimum ${name} value ${minFormatted}`}>
+                            <MinPill>
+                                {!ignoreMin && 'Min '}
+                                <NumberFlow
+                                    // style={{ width: '40px'}}
+                                    value={min}
+                                    integer
+                                    prefix="$"
+                                />
+                            </MinPill>
+                        </MinRow>
+                    </ValueWrapper>
+                    <Controls>
+                        <ControlButton type="button" onClick={inc} aria-label={`Increase ${name}`}>+</ControlButton>
+                        <ControlButton type="button" onClick={dec} aria-label={`Decrease ${name}`}>−</ControlButton>
+                    </Controls>
+                </TopSection>
+            )}
+            {showTable && (
+                <TableWrapper
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Multiplication table for ${name}. Activate to return to normal view.`}
+                    onClick={toggleTable}
+                    onKeyDown={handleValueKey}
+                >
+                    <TableHeader>{name} × 1..10</TableHeader>
+                    <MultTable>
+                        {multRows.map(r => (
+                            <li key={r.n}>
+                                <span className="expr">{r.n} × {formatterRef.current.format(value)}</span>
+                                <span className="eq">=</span>
+                                <span className="prod">{formatterRef.current.format(r.product)}</span>
+                            </li>
+                        ))}
+                    </MultTable>
+                    <Hint>(Tap / click to close)</Hint>
+                </TableWrapper>
+            )}
+            {!showTable && graph && (
                 <GraphSection aria-hidden="true">
                     <GraphSvg viewBox="0 0 100 100" preserveAspectRatio="none">
                         <defs>
@@ -169,6 +220,9 @@ const ValueWrapper = styled.div`
     gap: 0.4em;
     font-size: 3.25em; /* slightly smaller for improved balance with new spacing */
     color: #0f172a;
+    cursor: pointer; /* indicate interactivity */
+    outline: none;
+    &:focus-visible { box-shadow: 0 0 0 3px rgba(59,130,246,0.5); border-radius: .5em; }
 
     .text-red-500 {
         color: #dc2626;
@@ -187,6 +241,77 @@ const ValueWrapper = styled.div`
     }
 `
 
+// NEW styled components for multiplication table
+const TableWrapper = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1em; /* increased spacing */
+  align-items: stretch; /* allow internal elements to span full width */
+  justify-content: center;
+  padding: .75em .5em .5em; /* a bit more breathing room */
+  min-height: 12em; /* slightly taller to fit larger text */
+  cursor: pointer;
+  outline: none;
+  animation: fadeIn .25s ease;
+  &:focus-visible { box-shadow: 0 0 0 3px rgba(59,130,246,0.5); border-radius: .75em; }
+  @keyframes fadeIn { from { opacity: 0; transform: scale(.97); } to { opacity: 1; transform: scale(1); } }
+`
+
+const TableHeader = styled.div`
+  font-weight: 600;
+  font-size: 1.25em; /* larger */
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  color: #475569;
+  text-align: center;
+`
+
+const MultTable = styled.ul`
+  list-style: none;
+  margin: 0;
+  padding: 0 .25em; /* slight horizontal padding */
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(10ch, 1fr)); /* exactly 5 columns */
+  grid-auto-rows: auto;
+  gap: .6em .9em; /* row / column gap */
+  font-size: 1.05em; /* larger text */
+  line-height: 1.25;
+  /* Ensure only two rows (1-5 first row, 6-10 second). The list has exactly 10 items. */
+  li { 
+    display: flex; 
+    align-items: baseline; 
+    gap: .4em; 
+    justify-content: space-between; 
+    background: linear-gradient(135deg,#f1f5f9,#e2e8f0);
+    border: 1px solid #d8e0e8;
+    padding: .4em .55em .45em;
+    border-radius: .55em;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+  }
+  .expr { font-variant-numeric: tabular-nums; color: #334155; font-weight: 500; flex: 1; }
+  .eq { opacity: .6; font-weight: 500; }
+  .prod { font-variant-numeric: tabular-nums; font-weight: 600; color: #0f172a; text-align: right; min-width: 6ch; }
+
+  @media (max-width: 560px) {
+    /* On very narrow screens allow horizontal scroll instead of wrapping to third row */
+    overflow-x: auto;
+    grid-template-columns: repeat(5, max-content);
+    padding-bottom: .25em;
+    li { min-width: 11ch; }
+  }
+`
+
+const Hint = styled.div`
+  font-size: .7em; /* slightly larger to match new scale */
+  text-transform: uppercase;
+  letter-spacing: .9px;
+  opacity: .55;
+  font-weight: 600;
+  text-align: center;
+`
+
+// Restored styled components
 const MinRow = styled.div`
   display: inline-flex;
   align-items: center;
@@ -198,7 +323,7 @@ const MinRow = styled.div`
 
 const MinPill = styled.span`
   background: linear-gradient(135deg, #eef2f6, #e2e8f0);
-    width: max-content;
+  width: max-content;
   border: 1px solid #c8d1db;
   padding: 0.15em 0.65em 0.25em;
   border-radius: 999px;
