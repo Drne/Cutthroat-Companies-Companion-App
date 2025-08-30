@@ -36,6 +36,8 @@ export const SettingsPanel = ({
   rewardMaxMultiplier,
   onChangeRewardMinMultiplier,
   onChangeRewardMaxMultiplier,
+  maxContractResources,
+  onChangeMaxContractResources,
 }) => {
   const [open, setOpen] = useState(false) // default closed now
   const [confirmReset, setConfirmReset] = useState(false)
@@ -176,7 +178,7 @@ export const SettingsPanel = ({
               >−</StepBtn>
               <NumInput
                 value={Math.round(noiseIntervalMs/1000)}
-                onChange={e => onChangeNoiseInterval && onChangeNoiseInterval(Math.max(1, +e.target.value ?? 1) * 1000)}
+                onChange={e => onChangeNoiseInterval && onChangeNoiseInterval(Math.max(1, +e.target.value || 1) * 1000)}
                 aria-label="Noise interval seconds"
               />
               <StepBtn
@@ -351,6 +353,39 @@ export const SettingsPanel = ({
                 >+</StepBtn>
               </StepGroup>
             </Row>
+            <Row>
+              <Label>Max Resources</Label>
+              <StepGroup>
+                <StepBtn
+                  type="button"
+                  aria-label="Decrease max resources per contract"
+                  onClick={() => {
+                    const cur = maxContractResources || 1;
+                    if (cur <= 1) return;
+                    onChangeMaxContractResources && onChangeMaxContractResources(cur - 1);
+                  }}
+                  disabled={(maxContractResources || 1) <= 1}
+                >−</StepBtn>
+                <NumInput
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={maxContractResources}
+                  onChange={e => onChangeMaxContractResources && onChangeMaxContractResources(Math.min(20, Math.max(1, +e.target.value || 1)))}
+                  aria-label="Maximum distinct resources per contract"
+                />
+                <StepBtn
+                  type="button"
+                  aria-label="Increase max resources per contract"
+                  onClick={() => {
+                    const cur = maxContractResources || 1;
+                    if (cur >= 20) return;
+                    onChangeMaxContractResources && onChangeMaxContractResources(cur + 1);
+                  }}
+                  disabled={(maxContractResources || 1) >= 20}
+                >+</StepBtn>
+              </StepGroup>
+            </Row>
         </Controls>
         <Footer>
           <div>
@@ -373,7 +408,7 @@ const Wrapper = styled.aside`
   height: 100vh;
   width: clamp(220px, 18vw, 300px);
   transform: translateX(calc(150% - 3.25rem)); /* hide panel leaving toggle width */
-  &[data-open='true'] { transform: translateX(0); }
+  &[data-open='true'] { transform: translateX(-3.3em); }
   transition: transform .4s cubic-bezier(.6,.2,.1,1);
   z-index: 40;
   display:flex;

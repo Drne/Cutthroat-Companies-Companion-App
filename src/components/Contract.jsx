@@ -4,6 +4,7 @@ import styled from 'styled-components'
 import { resources as allResources } from '../constants/resources'
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
+import { NumberFlow } from "@number-flow/react";
 
 /*
 Contract Component
@@ -13,11 +14,10 @@ Props:
     - resources: A dictionary of resources required { resourceName: quantity }
     - id: Unique identifier for the contract
  */
-export const Contract = ({ reward, resources, id, label, onComplete, decay, onDecay, decayTime = 15000, paused = false }) => {
+export const Contract = ({ reward, resources, id, label, onComplete, decay, onDecay, decayTime = 15000, paused = false, currentValues }) => {
     const [confirming, setConfirming] = useState(false)
     const [completed, setCompleted] = useState(false)
     const [decayed, setDecayed] = useState(false)
-    const [decayStart, setDecayStart] = useState(null)
     const [progress, setProgress] = useState(0) // 0..1
     const decayCalledRef = useRef(false)
 
@@ -28,13 +28,17 @@ export const Contract = ({ reward, resources, id, label, onComplete, decay, onDe
             .sort((a,b) => (a.meta?.tier||0) - (b.meta?.tier||0) || a.name.localeCompare(b.name))
     }, [resources, metaMap])
 
+    const currentMarketValue = useMemo(() => {
+        if (!currentValues) return 0
+        return resourceEntries.reduce((sum, r) => sum + (currentValues[r.name] || 0) * r.qty, 0)
+    }, [currentValues, resourceEntries])
+
     // Start / advance decay progress
     useEffect(() => {
         if (paused) return // freeze progress
         if (!decay || completed || decayed || !onDecay) return
         // Recompute decayStart so that progress resumes smoothly after pause
         const effectiveStart = performance.now() - progress * decayTime
-        setDecayStart(effectiveStart)
         let frame
         const loop = (now) => {
             const elapsed = now - effectiveStart
@@ -87,30 +91,34 @@ export const Contract = ({ reward, resources, id, label, onComplete, decay, onDe
             data-confirm={confirming || undefined}
             transition={{ duration: 1, type: 'spring', stiffness: 100, damping: 20 }}
         >
-            {/* header row with inline spinner */}
-            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '.5rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'start', justifyContent: 'start', gap: '.2rem', width: '100%' }}>
                 <Badge title="Contract type">{label}</Badge>
-                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '.5rem' }}>
-                    {decay && !completed && !decayed && (
-                        <InlineProgress aria-label={`Time remaining ${(1-progress)*decayTime/1000 | 0} seconds`}>
-                            <CircularProgressbar
-                                value={Math.floor(progress * 100)}
-                                strokeWidth={12}
-                                text={`${Math.max(0, Math.ceil((1 - progress) * decayTime / 1000))}`}
-                                styles={buildStyles({
-                                    pathColor: progress < 0.7 ? '#1d4ed8' : progress < 0.9 ? '#f59e0b' : '#dc2626',
-                                    trailColor: '#e2e8f0',
-                                    textColor: '#0f172a',
-                                    textSize: '34px'
-                                })}
-                            />
-                        </InlineProgress>
-                    )}
-                    <Reward title="Reward" aria-label="Reward">
-                        <RewardValue >${reward ?? 0}</RewardValue>
-                    </Reward>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem', flexWrap: 'nowrap', marginTop: '.1rem' }}>
+                <Reward title="Reward" aria-label="Reward">
+                    <RewardValue >${reward ?? 0}</RewardValue>
+                </Reward>
+                <MarketReward title="Market Value" aria-label="Market Value (current sum of required resources)">
+                    <MarketValue>
+                        <NumberFlow value={currentMarketValue ?? 0} prefix="$" />
+                    </MarketValue>
+                </MarketReward>
                 </div>
             </div>
+            {decay && !completed && !decayed && (
+                <InlineProgress aria-label={`Time remaining ${(1-progress)*decayTime/1000 | 0} seconds`}>
+                    <CircularProgressbar
+                        value={Math.floor(progress * 100)}
+                        strokeWidth={12}
+                        text={`${Math.max(0, Math.ceil((1 - progress) * decayTime / 1000))}`}
+                        styles={buildStyles({
+                            pathColor: progress < 0.7 ? '#1d4ed8' : progress < 0.9 ? '#f59e0b' : '#dc2626',
+                            trailColor: '#e2e8f0',
+                            textColor: '#0f172a',
+                            textSize: '34px'
+                        })}
+                    />
+                </InlineProgress>
+            )}
             <ReqRow aria-label="Required resources" role="list">
                 {resourceEntries.length === 0 && <Empty>No resources</Empty>}
                 {resourceEntries.map(r => {
@@ -163,6 +171,7 @@ const Card = styled(motion.div)`
 const Badge = styled.span`
   background:#1d4ed8;
   color:#fff;
+  margin-right: 2.2rem; /* space for spinner */
   font-weight:600;
   padding:.25rem .55rem .3rem;
   border-radius:.5rem;
@@ -206,21 +215,34 @@ const Dot = styled.i`
 `;
 
 const Reward = styled.div`
-  margin-left:.35rem;
   background:#047857;
   color:#fff;
-  padding:.35rem .55rem .4rem;
+  /* Unified pill sizing */
+  display:inline-flex;
+  align-items:center;
+  gap:.25rem;
+  padding:0 .6rem; /* horizontal only */
+  min-height:1.6rem; /* fixed consistent height */
   border-radius:.55rem;
   font-weight:600;
   font-size:.65rem;
-  display:flex;
-  align-items:center;
-  line-height:1;
+  line-height:1; /* prevent extra vertical expansion */
   flex-shrink:0;
 `;
 
 const RewardValue = styled.div`
   font-weight:600; font-size:.85rem; letter-spacing:.5px;
+  display:flex; align-items:center; line-height:1; /* align numeral vertically */
+`;
+
+// Distinct styling for the market value pill
+const MarketReward = styled(Reward)`
+  background:#7c3aed; /* violet */
+  box-shadow:0 0 0 1px #6d28d9 inset;
+`;
+const MarketValue = styled(RewardValue)`
+  color:#fff;
+  .nf-root { font-size:.85rem; font-weight:600; line-height:1; display:flex; align-items:center; }
 `;
 
 const Empty = styled.span`
@@ -282,6 +304,9 @@ const CancelBtn = styled(ButtonBase)`
 `;
 
 const InlineProgress = styled.div`
+  position: absolute;
+  top: .4rem;
+  right: .4rem;
   width:2.1rem; height:2.1rem; display:flex; align-items:center; justify-content:center; flex-shrink:0; /* removed margin-right; spacing handled by parent gap */
   .CircularProgressbar { width:100%; height:100%; }
   .CircularProgressbar-text { font-weight:700; font-size:28px; }

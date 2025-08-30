@@ -17,6 +17,7 @@ function App() {
     const [paused, setPaused] = useLocalStorage('setting:paused', true);
     const [minPayoutMult, setMinPayoutMult] = useLocalStorage('setting:contractRewardMin', 1);
     const [maxPayoutMult, setMaxPayoutMult] = useLocalStorage('setting:contractRewardMax', 1.4);
+    const [maxContractResources, setMaxContractResources] = useLocalStorage('setting:maxContractResources', 6);
 
     const {
         byTier,
@@ -33,7 +34,7 @@ function App() {
     } = useResources({ noiseIntervalMs, paused });
     const tierOrder = Object.keys(byTier).map(Number).sort((a,b)=>a-b)
 
-    const { contracts, completeContract, resetContracts, onContractDecay, contractDifficulty, setContractDifficulty } = useContracts(byTier, values, setResourceValue, 50, contractCount, minPayoutMult, maxPayoutMult, paused);
+    const { contracts, completeContract, resetContracts, onContractDecay, contractDifficulty, setContractDifficulty } = useContracts(byTier, values, setResourceValue, 50, contractCount, minPayoutMult, maxPayoutMult, paused, maxContractResources || Infinity);
 
     // Refs to each resource box wrapper
     const containerRef = useRef(null)
@@ -97,7 +98,7 @@ function App() {
                 type="button"
                 aria-label="Open settings panel"
                 onClick={() => setSettingsTrigger(t => t + 1)}
-            >⚙️ Settings</OpenSettingsButton>
+            >⚙️</OpenSettingsButton>
             <SettingsPanel
                 toggleNoise={toggleNoise}
                 isNoiseActive={isNoiseActive}
@@ -130,6 +131,8 @@ function App() {
                     if (clamped < minPayoutMult) setMinPayoutMult(clamped);
                     setMaxPayoutMult(clamped);
                 }}
+                maxContractResources={maxContractResources}
+                onChangeMaxContractResources={setMaxContractResources}
             />
             <ResourceStage ref={containerRef}>
                 <SvgOverlay aria-hidden="true">
@@ -179,6 +182,7 @@ function App() {
                                 decayTime={decayTimeMs}
                                 onDecay={() => onContractDecay(contract.id)}
                                 onComplete={() => completeContract(contract.id)}
+                                currentValues={values}
                             />
                         ))}
                     </AnimatePresence>
@@ -206,27 +210,26 @@ const ResourceColumn = styled('div')({
     height: '100%',
 })
 const OpenSettingsButton = styled.button`
-  position: absolute;
-  top: 14px;
-  right: 18px;
-  z-index: 1;
-  color:#fff;
-  border:1px solid #1e40af;
-  border-radius: 999px;
-  font-size: 13px;
-  font-weight:600;
-  letter-spacing:.5px;
-  padding: 10px 18px 11px;
-  display:inline-flex;
-  align-items:center;
-  gap:.5rem;
+  position:absolute;
+  top:10px; right:12px;
+  z-index:1;
+  display:inline-flex; align-items:center; justify-content:center;
+  width:38px; height:38px;
+  border-radius:10px;
+  background:#ffffffcc;
+  backdrop-filter: blur(4px);
+  border:1px solid #cbd5e1;
+  color:#475569;
+  font-size:18px;
+  line-height:1;
   cursor:pointer;
-  background: linear-gradient(135deg,#1d4ed8,#1e3a8a);
-  box-shadow:0 4px 12px -2px rgba(0,0,0,.25),0 2px 4px rgba(0,0,0,.15);
-  transition: background .25s, transform .18s, box-shadow .25s;
-  &:hover { background: linear-gradient(135deg,#1d4ed8,#1e40af); }
-  &:active { transform: translateY(1px); }
-  &:focus-visible { outline:2px solid #fff; outline-offset:3px; }
+  padding:0;
+  font-weight:600;
+  transition: background .25s, color .25s, border-color .25s, transform .18s;
+  box-shadow:0 2px 4px rgba(0,0,0,.08);
+  &:hover { background:#f1f5f9; color:#334155; }
+  &:active { transform:translateY(1px); }
+  &:focus-visible { outline:2px solid #1d4ed8; outline-offset:3px; }
 `;
 
 const ResourceStage = styled.main`
@@ -234,7 +237,7 @@ const ResourceStage = styled.main`
   position:relative;
   display:flex;
   gap:40px;
-  padding:70px 60px 40px; /* top padding to clear button */
+  padding:32px 60px 40px;
   align-items:stretch;
   justify-content:space-evenly;
   overflow:auto;
@@ -252,8 +255,7 @@ const SvgOverlay = styled.svg`
 const ContractsWrapper = styled.section`
   height:200px;
   border-top:1px solid #ccc;
-  display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(250px,1fr));
+  display:flex;
   gap:10px;
   padding:10px;
   overflow-y:auto;

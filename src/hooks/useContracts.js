@@ -23,7 +23,7 @@ import { useLocalStorage } from "./useWebStorage.ts";
 //     }
 // }
 
-export const useContracts = (resourcesByTier, values, setResourceValue, startValue = 50, contractCount, rewardMinMultiplier = 1, rewardMaxMultiplier = 1.4, paused = false) => {
+export const useContracts = (resourcesByTier, values, setResourceValue, startValue = 50, contractCount, rewardMinMultiplier = 1, rewardMaxMultiplier = 1.4, paused = false, maxResources = Infinity) => {
     const [contracts, setContracts] = useLocalStorage('contracts', []);
     const [startTargetValue, setStartTargetValue] = useState(startValue);
     const [currentTargetValue, setCurrentTargetValue] = useLocalStorage('currentContractTargetValue', startTargetValue); // Adjusts overall contract difficulty and rewards
@@ -42,7 +42,7 @@ export const useContracts = (resourcesByTier, values, setResourceValue, startVal
             const numSpecialists = Math.random() < 0.5 ? 1 : 2;
             const allResources = Object.keys(values);
             const shuffled = allResources.sort(() => 0.5 - Math.random());
-            specialistResource = shuffled.slice(0, numSpecialists);
+            specialistResource = shuffled.slice(0, Math.min(numSpecialists, maxResources)); // clamp to maxResources
 
             // Randomly add any of the specialist resources until we hit the target value
             while (currentValue < scaledTarget) {
@@ -54,17 +54,11 @@ export const useContracts = (resourcesByTier, values, setResourceValue, startVal
             }
         } else {
             while (currentValue < scaledTarget) {
-                // Check if there is a valid resource to add
-                const validResources = Object.entries(values).filter(([name, val]) => val + currentValue <= scaledTarget);
-                if (validResources.length === 0) break; // No valid resources left to add
+                // Filter resources that would not exceed target AND (if distinct limit reached) are already selected
+                const resourceEntries = Object.entries(values).filter(([name, val]) => val + currentValue <= scaledTarget && (Object.keys(selectedResources).length < maxResources || selectedResources[name] != null));
+                if (resourceEntries.length === 0) break; // No valid resources left to add
 
-                // pick a random key from values
-                const resourceNames = Object.keys(values);
-                const randIndex = Math.floor(Math.random() * resourceNames.length);
-                const resourceName = resourceNames[randIndex];
-                const resourceValue = values[resourceName];
-
-                if (resourceValue + currentValue > scaledTarget) continue; // skip if would exceed target
+                const [resourceName, resourceValue] = resourceEntries[Math.floor(Math.random() * resourceEntries.length)];
                 selectedResources[resourceName] = (selectedResources[resourceName] || 0) + 1;
                 currentValue += resourceValue;
             }
@@ -92,10 +86,11 @@ export const useContracts = (resourcesByTier, values, setResourceValue, startVal
             id,
             label,
             difficulty: contractDifficulty,
-            rewardRange: { min: minMult, max: maxMult }
+            rewardRange: { min: minMult, max: maxMult },
+            maxResources
         };
 
-    }, [values, contracts, contractDifficulty, rewardMinMultiplier, rewardMaxMultiplier])
+    }, [values, contracts, contractDifficulty, rewardMinMultiplier, rewardMaxMultiplier, maxResources])
 
     const addNewContract = useCallback((targetValue, repeat = 1) => {
         const newContracts = [];
