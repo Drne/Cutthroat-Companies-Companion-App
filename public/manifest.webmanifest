@@ -1,8 +1,8 @@
 {
   "name": "Cutthroat Companies Companion",
-  "short_name": "Cutthroat",
-  "start_url": "/cutthroat-companies/",
-  "scope": "/cutthroat-companies/",
+  "short_name": "Cutthroat Co.",
+  "start_url": "/Cutthroat-Companies-Companion-App/",
+  "scope": "/Cutthroat-Companies-Companion-App/",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",
