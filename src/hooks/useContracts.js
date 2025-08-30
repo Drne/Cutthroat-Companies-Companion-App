@@ -1,6 +1,7 @@
 import {useCallback, useEffect, useState} from "react";
 import { ContractLabels } from "../constants/contract-labels.js";
 import { useLocalStorage } from "./useWebStorage.ts";
+
 // Contracts are generated from the following json schema:
 
 // type Contract = {
@@ -23,9 +24,18 @@ import { useLocalStorage } from "./useWebStorage.ts";
 //     }
 // }
 
-export const useContracts = (resourcesByTier, values, setResourceValue, startValue = 50, contractCount, rewardMinMultiplier = 1, rewardMaxMultiplier = 1.4, paused = false, maxResources = Infinity) => {
+export const useContracts = (
+    values,
+    setResourceValue,
+    startValue = 50,
+    contractCount,
+    rewardMinMultiplier = 1,
+    rewardMaxMultiplier = 1.4,
+    paused = false,
+    maxResources = Infinity
+) => {
     const [contracts, setContracts] = useLocalStorage('contracts', []);
-    const [startTargetValue, setStartTargetValue] = useState(startValue);
+    const [startTargetValue, _] = useState(startValue);
     const [currentTargetValue, setCurrentTargetValue] = useLocalStorage('currentContractTargetValue', startTargetValue); // Adjusts overall contract difficulty and rewards
     const [contractDifficulty, setContractDifficulty] = useLocalStorage('contractDifficulty', 1); // Multiplier for contract difficulty (1 = normal, >1 harder, <1 easier)
 

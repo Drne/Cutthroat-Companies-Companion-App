@@ -2,12 +2,13 @@ import styled from "styled-components";
 import { ResourceBox } from './components/ResourceBox.jsx'
 import useResources from "./hooks/useResources.js";
 import { resources as resourceList } from './constants/resources'
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useState } from 'react'
 import {useContracts} from "./hooks/useContracts.js";
 import {Contract} from "./components/Contract.jsx";
 import {AnimatePresence, LayoutGroup} from 'framer-motion'
 import {SettingsPanel} from './components/SettingsPanel.jsx'
 import {useLocalStorage} from "./hooks/useWebStorage.js";
+import { useResourceConnections } from './hooks/useResourceConnections.js'
 
 function App() {
     // timing & settings state (persisted)
@@ -34,62 +35,12 @@ function App() {
     } = useResources({ noiseIntervalMs, paused });
     const tierOrder = Object.keys(byTier).map(Number).sort((a,b)=>a-b)
 
-    const { contracts, completeContract, resetContracts, onContractDecay, contractDifficulty, setContractDifficulty } = useContracts(byTier, values, setResourceValue, 50, contractCount, minPayoutMult, maxPayoutMult, paused, maxContractResources || Infinity);
+    const { contracts, completeContract, resetContracts, onContractDecay, contractDifficulty, setContractDifficulty } = useContracts(values, setResourceValue, 50, contractCount, minPayoutMult, maxPayoutMult, paused, maxContractResources || Infinity);
 
-    // Refs to each resource box wrapper
-    const containerRef = useRef(null)
-    const resourceRefs = useRef({})
+    // Resource connection paths (encapsulated in hook for clarity)
+    const { containerRef, getResourceRef, connections } = useResourceConnections(resourceList)
 
-    const setResourceRef = useCallback((name, el) => {
-        if (el) resourceRefs.current[name] = el; else delete resourceRefs.current[name]
-    }, [])
-
-    const [connections, setConnections] = useState([])
-
-    const computeConnections = useCallback(() => {
-        if (!containerRef.current) return
-        const containerBox = containerRef.current.getBoundingClientRect()
-        const boxes = {}
-        Object.entries(resourceRefs.current).forEach(([name, el]) => {
-            const rect = el.getBoundingClientRect()
-            boxes[name] = {
-                x: rect.left - containerBox.left,
-                y: rect.top - containerBox.top,
-                width: rect.width,
-                height: rect.height,
-            }
-        })
-        const newConns = []
-        for (const res of resourceList) {
-            if (!res.components || !res.components.length) continue
-            const targetBox = boxes[res.name]
-            if (!targetBox) continue
-            for (const comp of res.components) {
-                const sourceBox = boxes[comp]
-                if (!sourceBox) continue
-                // start at right center of source, end at left center of target
-                const x1 = sourceBox.x + sourceBox.width
-                const y1 = sourceBox.y + sourceBox.height / 2
-                const x2 = targetBox.x
-                const y2 = targetBox.y + targetBox.height / 2
-                const dx = Math.max(60, (x2 - x1) * 0.5)
-                const path = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`
-                newConns.push({ from: comp, to: res.name, path })
-            }
-        }
-        setConnections(newConns)
-    }, [])
-
-    useEffect(() => {
-        computeConnections()
-    }, [])
-
-    useEffect(() => {
-        const onResize = () => computeConnections()
-        window.addEventListener('resize', onResize)
-        return () => window.removeEventListener('resize', onResize)
-    }, [computeConnections])
-
+    // Settings panel trigger (increments to force open via effect in SettingsPanel)
     const [settingsTrigger, setSettingsTrigger] = useState(0)
 
     return (
@@ -152,7 +103,7 @@ function App() {
                     return (
                         <ResourceColumn key={tier} aria-label={`Tier ${tierGroup.tier} ${tierGroup.label}`}> {
                             tierGroup.resources.map(r => (
-                                <div key={r.name} ref={el => setResourceRef(r.name, el)}>
+                                <div key={r.name} ref={getResourceRef(r.name)}>
                                     <ResourceBox
                                         name={`${r.icon ? r.icon + ' ' : ''}${r.label}`}
                                         value={r.value}
