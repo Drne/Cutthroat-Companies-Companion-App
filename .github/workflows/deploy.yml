@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -20,12 +20,33 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
+
+      - name: Configure git user (for version bump)
+        if: github.actor != 'github-actions[bot]'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump patch version
+        if: github.actor != 'github-actions[bot]'
+        run: |
+          old=$(node -p "require('./package.json').version")
+          npm version patch -m "chore: bump version %s [skip ci]"
+          new=$(node -p "require('./package.json').version")
+          echo "Bumped version $old -> $new" >> $GITHUB_STEP_SUMMARY
+
+      - name: Push version bump commit and tag
+        if: github.actor != 'github-actions[bot]'
+        run: |
+          git push --follow-tags
 
       - name: Install dependencies
         run: npm ci
@@ -53,4 +74,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
