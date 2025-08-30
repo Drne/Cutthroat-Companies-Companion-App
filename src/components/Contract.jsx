@@ -4,7 +4,7 @@ import styled from 'styled-components'
 import { resources as allResources } from '../constants/resources'
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
-import { NumberFlow } from "@number-flow/react";
+import NumberFlow from "@number-flow/react";
 
 /*
 Contract Component

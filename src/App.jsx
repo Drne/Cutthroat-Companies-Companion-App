@@ -171,21 +171,23 @@ function App() {
             </ResourceStage>
             <ContractsWrapper>
                 <LayoutGroup>
-                    <AnimatePresence>
-                        {contracts.map((contract, idx) => (
-                            <Contract
-                                key={contract.id}
-                                id={contract.id}
-                                {...contract}
-                                paused={paused}
-                                decay={idx === contracts.length - 1}
-                                decayTime={decayTimeMs}
-                                onDecay={() => onContractDecay(contract.id)}
-                                onComplete={() => completeContract(contract.id)}
-                                currentValues={values}
-                            />
-                        ))}
-                    </AnimatePresence>
+                    <ContractsRow>
+                        <AnimatePresence>
+                            {contracts.map((contract, idx) => (
+                                <Contract
+                                    key={contract.id}
+                                    id={contract.id}
+                                    {...contract}
+                                    paused={paused}
+                                    decay={idx === contracts.length - 1}
+                                    decayTime={decayTimeMs}
+                                    onDecay={() => onContractDecay(contract.id)}
+                                    onComplete={() => completeContract(contract.id)}
+                                    currentValues={values}
+                                />
+                            ))}
+                        </AnimatePresence>
+                    </ContractsRow>
                 </LayoutGroup>
             </ContractsWrapper>
         </AppShell>
@@ -256,10 +258,19 @@ const ContractsWrapper = styled.section`
   height:200px;
   border-top:1px solid #ccc;
   display:flex;
-  gap:10px;
   padding:10px;
   overflow-y:auto;
   background-color:#f9fafb;
+`;
+
+const ContractsRow = styled.div`
+  display:flex;
+  flex:1;
+  gap:10px;
+  width:100%;
+  height:100%;
+  align-items:stretch;
+  & > * { flex:1 1 0; min-width:0; display:flex; }
 `;
 
 export default App;
